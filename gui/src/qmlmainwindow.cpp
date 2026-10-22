@@ -2925,15 +2925,29 @@ void QmlMainWindow::show()
         fullscreenTime();
     else
     {
-        if(!settings->GetGeometry().isEmpty())
-        {
-            setGeometry(settings->GetGeometry());
-            showNormal();
-        }
-        else
-            showMaximized();
+        setGeometry(launcherGeometry());
+        showNormal();
         setWindowAdjustable(true);
     }
+}
+
+// Any2Play: the launcher opens as a compact centered window instead of maximized.
+// A saved geometry that fills almost the whole screen is treated as a leftover
+// maximized window from before this change and replaced by the compact default.
+QRect QmlMainWindow::launcherGeometry() const
+{
+    QScreen *current_screen = screen() ? screen() : QGuiApplication::primaryScreen();
+    const QRect available = current_screen->availableGeometry();
+    const QRect saved = settings->GetGeometry();
+    const bool saved_fills_screen = saved.width() >= available.width() * 9 / 10
+        && saved.height() >= available.height() * 9 / 10;
+    if (!saved.isEmpty() && available.intersects(saved) && !saved_fills_screen)
+        return saved;
+
+    QRect compact(QPoint(0, 0), QSize(qMin(1100, available.width() * 85 / 100),
+                                      qMin(700, available.height() * 85 / 100)));
+    compact.moveCenter(available.center());
+    return compact;
 }
 
 namespace {
@@ -5229,13 +5243,8 @@ renderer_backend_ready:
             setStreamWindowAdjustable(false);
             if(qEnvironmentVariable("XDG_CURRENT_DESKTOP") != "gamescope")
             {
-                if(!this->settings->GetGeometry().isEmpty())
-                {
-                    setGeometry(this->settings->GetGeometry());
-                    normalTime();
-                }
-                else
-                    showMaximized();
+                setGeometry(launcherGeometry());
+                normalTime();
             }
             scheduleUpdate(true, UpdateRequestReason::SceneChanged);
         }

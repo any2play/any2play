@@ -204,6 +204,7 @@ private:
     void scheduleBufferedUpdate();
     void scheduleBufferedUpdate(UpdateRequestReason reason);
     void updateStatsOverlayGeometry();
+    QRect launcherGeometry() const;
     bool statsOverlayActive() const { return stats_overlay_visible; }
     void armQuickNeedSync(const char *reason);
     void scheduleRenderIfBacklog(UpdateRequestReason reason = UpdateRequestReason::PendingFrame);

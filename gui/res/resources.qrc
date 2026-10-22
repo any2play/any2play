@@ -24,6 +24,16 @@
     <file>steam_landscape.png</file>
     <file>steam_logo.png</file>
     <file>steam_portrait.png</file>
+    <file alias="a2p-refresh.svg">tabler/refresh.svg</file>
+    <file alias="a2p-plus.svg">tabler/plus.svg</file>
+    <file alias="a2p-power.svg">tabler/power.svg</file>
+    <file alias="a2p-key.svg">tabler/key.svg</file>
+    <file alias="a2p-eye-off.svg">tabler/eye-off.svg</file>
+    <file alias="a2p-trash.svg">tabler/trash.svg</file>
+    <file alias="a2p-x.svg">tabler/x.svg</file>
+    <file alias="a2p-steam.svg">tabler/brand-steam.svg</file>
+    <file alias="a2p-back.svg">tabler/arrow-left.svg</file>
+    <file alias="a2p-settings.svg">tabler/settings.svg</file>
   </qresource>
   <qresource prefix="/shaders">
     <file alias="FSR.glsl">shaders/FSR.glsl</file>

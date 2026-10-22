@@ -56,66 +56,62 @@ Item {
             left: parent.left
             right: parent.right
         }
-        height: 80
+        height: 56
 
         RowLayout {
             anchors {
                 fill: parent
-                leftMargin: 10
-                rightMargin: 10
+                leftMargin: 6
+                rightMargin: 12
             }
+            spacing: 8
 
-            Button {
-                Layout.fillHeight: true
-                Layout.preferredWidth: 100
-                flat: true
-                text: "❮"
+            ToolButton {
+                icon.source: "qrc:/icons/a2p-back.svg"
+                display: AbstractButton.IconOnly
                 focusPolicy: Qt.NoFocus
-                Material.roundedScale: Material.SmallScale
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: qsTr("Back")
                 onClicked: {
                     dialog.rejected();
                     dialog.close();
                 }
             }
 
-            Item { Layout.fillWidth: true }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+
+                Label {
+                    id: titleLabel
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                    font.pixelSize: 17
+                    font.weight: Font.DemiBold
+                }
+
+                Label {
+                    id: headerLabel
+                    Layout.fillWidth: true
+                    visible: text !== ""
+                    elide: Text.ElideRight
+                    font.pixelSize: 11
+                    color: root.theme.textMuted
+                }
+            }
 
             Button {
                 id: okButton
-                Layout.fillHeight: true
-                flat: true
-                padding: 30
-                font.pixelSize: 25
+                highlighted: true
+                font.pixelSize: 14
                 focusPolicy: Qt.NoFocus
                 Material.roundedScale: Material.SmallScale
                 onClicked: dialog.accepted()
                 icon.source: "qrc:/icons/options.svg";
-                icon.width: 50
-                icon.height: 50
+                icon.width: 22
+                icon.height: 22
             }
-        }
-
-        Label {
-            id: titleLabel
-            anchors.centerIn: parent
-            horizontalAlignment: Qt.AlignHCenter
-            verticalAlignment: Qt.AlignVCenter
-            font.bold: true
-            font.pixelSize: 26
-        }
-
-        Label {
-            id: headerLabel
-            anchors {
-                top: parent.top
-                left: titleLabel.right
-                right: parent.right
-                verticalCenter: parent.verticalCenter
-            }
-            horizontalAlignment: Qt.AlignHCenter
-            verticalAlignment: Qt.AlignVCenter
-            font.bold: true
-            font.pixelSize: 14
         }
     }
 

@@ -165,267 +165,100 @@ DialogView {
     }
 
     Item {
-        TabBar {
+        // Any2Play: sections as a sidebar instead of a top tab bar. Same order and
+        // indexes, so PageUp/PageDown (L1/R1), focusCurrentTabFirstItem() and
+        // activeSettingsFlick() keep working through bar.currentIndex.
+        ListView {
             id: bar
             anchors {
                 top: parent.top
                 left: parent.left
-                right: parent.right
-                topMargin: 5
+                bottom: parent.bottom
+                topMargin: 10
+                bottomMargin: 10
+                leftMargin: 8
             }
-            TabButton {
-                id: general
-                text: qsTr("General")
+            width: 190
+            clip: true
+            interactive: false
+            spacing: 2
+            currentIndex: 0
+            model: [qsTr("General"), qsTr("Video"), qsTr("Stream"), qsTr("Audio/Wifi"), qsTr("Consoles"),
+                qsTr("Keys"), qsTr("Controllers"), qsTr("Remote"), qsTr("Config")]
+
+            delegate: ItemDelegate {
+                id: sectionItem
+                width: ListView.view.width
+                height: 40
+                text: modelData
+                font.pixelSize: 14
                 focusPolicy: Qt.NoFocus
-                Image {
-                    anchors {
-                        left: general.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
+                highlighted: ListView.isCurrentItem
+                onClicked: bar.currentIndex = index
+                background: Rectangle {
+                    radius: 8
+                    color: sectionItem.highlighted ? root.theme.selection
+                        : sectionItem.hovered ? root.theme.surface
+                        : "transparent"
+
+                    Rectangle {
+                        anchors {
+                            left: parent.left
+                            verticalCenter: parent.verticalCenter
+                        }
+                        width: 3
+                        height: parent.height - 16
+                        radius: 2
+                        color: root.theme.accent
+                        visible: sectionItem.highlighted
                     }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/l1.svg"
-                    visible: bar.currentIndex == 1
                 }
             }
 
-            TabButton {
-                id: video
-                text: qsTr("Video")
-                focusPolicy: Qt.NoFocus
-                Image {
-                    anchors {
-                        right: video.left
-                        verticalCenter: parent.verticalCenter
-                        rightMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/r1.svg"
-                    visible: bar.currentIndex == 0
-                }
-                Image {
-                    anchors {
-                        left: video.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/l1.svg"
-                    visible: bar.currentIndex == 2
-                }
-            }
+            footer: RowLayout {
+                width: bar.width
+                spacing: 6
+                visible: Chiaki.controllers.length > 0
 
-            TabButton {
-                id: stream
-                text: qsTr("Stream")
-                focusPolicy: Qt.NoFocus
-                Image {
-                    anchors {
-                        right: stream.left
-                        verticalCenter: parent.verticalCenter
-                        rightMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/r1.svg"
-                    visible: bar.currentIndex == 1
-                }
-                Image {
-                    anchors {
-                        left: stream.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/l1.svg"
-                    visible: bar.currentIndex == 3
-                }
-            }
+                Item { Layout.preferredWidth: 10; Layout.preferredHeight: 36 }
 
-            TabButton {
-                text: qsTr("Audio/Wifi")
-                id: audio
-                focusPolicy: Qt.NoFocus
                 Image {
-                    anchors {
-                        right: audio.left
-                        verticalCenter: parent.verticalCenter
-                        rightMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/r1.svg"
-                    visible: bar.currentIndex == 2
-                }
-                Image {
-                    anchors {
-                        left: audio.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
+                    sourceSize: Qt.size(22, 22)
                     source: "qrc:/icons/l1.svg"
-                    visible: bar.currentIndex == 4
                 }
-            }
 
-            TabButton {
-                text: qsTr("Consoles")
-                id: consoles
-                focusPolicy: Qt.NoFocus
                 Image {
-                    anchors {
-                        right: consoles.left
-                        verticalCenter: parent.verticalCenter
-                        rightMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
+                    sourceSize: Qt.size(22, 22)
                     source: "qrc:/icons/r1.svg"
-                    visible: bar.currentIndex == 3
                 }
-                Image {
-                    anchors {
-                        left: consoles.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/l1.svg"
-                    visible: bar.currentIndex == 5
-                }
-            }
 
-            TabButton {
-                text: qsTr("Keys")
-                id: keys
-                focusPolicy: Qt.NoFocus
-                Image {
-                    anchors {
-                        right: keys.left
-                        verticalCenter: parent.verticalCenter
-                        rightMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/r1.svg"
-                    visible: bar.currentIndex == 4
-                }
-                Image {
-                    anchors {
-                        left: keys.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/l1.svg"
-                    visible: bar.currentIndex == 6
-                }
-            }
-
-            TabButton {
-                text: qsTr("Controllers")
-                id: controllers
-                focusPolicy: Qt.NoFocus
-                Image {
-                    anchors {
-                        right: controllers.left
-                        verticalCenter: parent.verticalCenter
-                        rightMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/r1.svg"
-                    visible: bar.currentIndex == 5
-                }
-                Image {
-                    anchors {
-                        left: controllers.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/l1.svg"
-                    visible: bar.currentIndex == 7
-                }
-            }
-
-            TabButton {
-                text: qsTr("Remote")
-                id: remote
-                focusPolicy: Qt.NoFocus
-                Image {
-                    anchors {
-                        right: remote.left
-                        verticalCenter: parent.verticalCenter
-                        rightMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/r1.svg"
-                    visible: bar.currentIndex == 6
-                }
-                Image {
-                    anchors {
-                        left: remote.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/l1.svg"
-                    visible: bar.currentIndex == 8
-                }
-            }
-
-            TabButton {
-                text: qsTr("Config")
-                id: config
-                focusPolicy: Qt.NoFocus
-                Image {
-                    anchors {
-                        left: config.left
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: -15
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: "qrc:/icons/r1.svg"
-                    visible: bar.currentIndex == 7
+                Label {
+                    text: qsTr("Switch section")
+                    font.pixelSize: 11
+                    color: root.theme.textMuted
                 }
             }
         }
 
+        Rectangle {
+            id: sidebarDivider
+            anchors {
+                top: parent.top
+                bottom: parent.bottom
+                left: bar.right
+                leftMargin: 8
+            }
+            width: 1
+            color: root.theme.border
+        }
+
         StackLayout {
             anchors {
-                top: bar.bottom
-                left: parent.left
+                top: parent.top
+                left: sidebarDivider.right
                 right: parent.right
                 bottom: parent.bottom
+                leftMargin: 8
             }
             currentIndex: bar.currentIndex
             onCurrentIndexChanged: {

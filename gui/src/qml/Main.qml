@@ -11,8 +11,34 @@ Item {
     property bool initialAsk: false
     readonly property bool preferSeparateStreamSettingsWindows: Chiaki.window.runtimeRendererBackend === 1 && Chiaki.session
     property bool useSeparateStreamSettingsWindows: false
+
+    // Any2Play palette: dark navy with a blue accent. Material colors below derive
+    // from it so the screens that were not redesigned pick it up too.
+    readonly property QtObject theme: QtObject {
+        readonly property color background: "#0B0F19"
+        readonly property color bar: "#111827"
+        readonly property color statusBar: "#0E1422"
+        readonly property color surface: "#131B2B"
+        readonly property color inset: "#0E1524"
+        readonly property color border: "#23304A"
+        readonly property color borderHover: "#34466A"
+        readonly property color accent: "#2E6BFF"
+        readonly property color accentLight: "#5A8DFF"
+        readonly property color selection: "#1A2E5C"
+        readonly property color text: "#E6EDF7"
+        readonly property color textMuted: "#8A9BB5"
+        readonly property color success: "#3DDC97"
+        readonly property color warning: "#F5C76A"
+        readonly property color warningBackground: "#3A2C0E"
+        readonly property color successBackground: "#0F3326"
+        readonly property color neutralBackground: "#1C2538"
+    }
+
     Material.theme: Material.Dark
-    Material.accent: "#00a7ff"
+    Material.accent: theme.accent
+    Material.primary: theme.bar
+    Material.background: theme.background
+    Material.foreground: theme.text
 
     function controllerButton(name) {
         let type = "deck";
@@ -259,7 +285,7 @@ Item {
         anchors.fill: parent
         hoverEnabled: false
         initialItem: mainViewComponent
-        font.pixelSize: 20
+        font.pixelSize: 15
 
         replaceEnter: Transition {
             PropertyAnimation {
