@@ -4,6 +4,7 @@
 #include "chiaki/log.h"
 #include "chiaki/time.h"
 #include "streamsession.h"
+#include "latencyhud.h"
 
 #include <qpa/qplatformnativeinterface.h>
 
@@ -32,6 +33,7 @@ extern "C" {
 #include <QFile>
 #include <QWidget>
 #include <QLabel>
+#include <QFontDatabase>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
@@ -170,11 +172,21 @@ public:
         droppedFramesRow = makeRow(tr("dropped frames"), QColor(QStringLiteral("#ef9a9a")), titleFont, valueFont, droppedFramesValue);
         lostFramesRow = makeRow(tr("lost frames"), QColor(QStringLiteral("#ef9a9a")), titleFont, valueFont, lostFramesValue);
 
+        QFont latencyFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+        latencyFont.setPixelSize(13);
+        latencyHudValue = new QLabel(panel);
+        latencyHudValue->setFont(latencyFont);
+        latencyHudValue->setTextFormat(Qt::PlainText);
+        latencyHudValue->setStyleSheet(QStringLiteral("color: #c5e1a5;"));
+        latencyHudValue->setTextInteractionFlags(Qt::NoTextInteraction);
+        panelLayout->addWidget(latencyHudValue);
+
         outer->addWidget(panel, 0, Qt::AlignRight | Qt::AlignVCenter);
 
         connect(owner, &QmlMainWindow::queueDepthAverageChanged, this, &StatsOverlayWidget::refresh);
         connect(owner, &QmlMainWindow::pendingFrameAgeChanged, this, &StatsOverlayWidget::refresh);
         connect(owner, &QmlMainWindow::droppedFramesChanged, this, &StatsOverlayWidget::refresh);
+        connect(owner, &QmlMainWindow::latencyHudTextChanged, this, &StatsOverlayWidget::refresh);
         if (backend) {
             connect(backend, &QmlBackend::sessionChanged, this, [this](StreamSession *s) {
                 setSession(s);
@@ -268,6 +280,10 @@ public:
             lostFramesValue->setText(QString::number(session->GetFramesLost()));
         else
             lostFramesValue->clear();
+
+        const QString latencyText = owner ? owner->latencyHudText() : QString();
+        latencyHudValue->setText(latencyText);
+        latencyHudValue->setVisible(hasSession && !latencyText.isEmpty());
     }
 
 private:
@@ -286,6 +302,7 @@ private:
     QLabel *packetLossValue = nullptr;
     QLabel *droppedFramesValue = nullptr;
     QLabel *lostFramesValue = nullptr;
+    QLabel *latencyHudValue = nullptr;
 };
 
 class DeferredPresentPacerThread final : public QThread
@@ -1133,6 +1150,9 @@ static bool shouldUseRefreshPacedBuffering(bool stream_active, int schedule_fram
 
 static void logLatencyStats(const char *label, qint64 delta_us)
 {
+    // Any2Play: per-stage HUD stats, independent of debug logging.
+    LatencyHud::instance().addLabeledSample(label, delta_us);
+
     if (!chiakiGui().isDebugEnabled())
         return;
     if (!label)
@@ -2426,7 +2446,7 @@ static const struct pl_hook *load_mpv_hook(pl_gpu gpu, const QString &path)
         return nullptr;
     }
 
-    QByteArray shader = file.readAll();
+    QByteArray shader = LatencyHud::tagUpscaleShader(file.readAll());
     const struct pl_hook *hook = pl_mpv_user_shader_parse(gpu, shader.constData(), static_cast<size_t>(shader.size()));
     if (!hook)
         qCWarning(chiakiGui) << "Failed to parse shader resource" << path;
@@ -3527,6 +3547,12 @@ double QmlMainWindow::pendingFrameAge() const
 {
     QMutexLocker locker(&pending_frame_age_mutex);
     return pending_frame_age;
+}
+
+QString QmlMainWindow::latencyHudText() const
+{
+    QMutexLocker locker(&latency_hud_mutex);
+    return latency_hud_text;
 }
 
 QString QmlMainWindow::describePlaceboDiscardReason(qint64 now_us) const
@@ -5128,6 +5154,12 @@ renderer_backend_ready:
                 newest_queued_frame_pts = -1.0;
             }
             resetQueueDepthTracking();
+            LatencyHud::instance().reset();
+            {
+                QMutexLocker locker(&latency_hud_mutex);
+                latency_hud_text.clear();
+            }
+            emit latencyHudTextChanged();
             {
                 QMutexLocker locker(&reset_seed_mutex);
                 if (reset_seed_frame)
@@ -7400,6 +7432,9 @@ void QmlMainWindow::render()
                                                fsr_hook, fsrcnnx_hook_8, fsrcnnx_hook_16);
         }
     }
+    params.info_callback = LatencyHud::plInfoCallback;
+    params.info_priv = &LatencyHud::instance();
+
     const struct pl_hook *active_hooks[] = {fsrcnnx_hook};
     if (fsrcnnx_hook) {
         params.hooks = active_hooks;
@@ -7475,6 +7510,7 @@ void QmlMainWindow::render()
         logLatencyStats("render_prep", render_call_begin_us - render_entry_us_local);
     if (render_call_begin_us >= render_setup_begin_us)
         logRenderSetupStats(render_call_begin_us, render_call_begin_us - render_setup_begin_us);
+    LatencyHud::instance().beginRender();
     if (!(bypass_frame_queue
         ? pl_render_image(placebo_renderer, &direct_render_frame, &target_frame, &params)
         : pl_render_image_mix(placebo_renderer, &frame_mix, &target_frame, &params)))
@@ -7491,6 +7527,18 @@ void QmlMainWindow::render()
             logLatencyStats("render_image", render_after_us - render_call_begin_us);
             if (render_entry_us_local > 0 && render_after_us >= render_entry_us_local)
                 logLatencyStats("render_work", render_after_us - render_entry_us_local);
+        }
+        LatencyHud &latency_hud = LatencyHud::instance();
+        latency_hud.endRender();
+        QString hud_text;
+        QString hud_log_line;
+        if (latency_hud.publish(render_after_us, &hud_text, &hud_log_line)) {
+            {
+                QMutexLocker locker(&latency_hud_mutex);
+                latency_hud_text = hud_text;
+            }
+            qCInfo(chiakiGui).noquote() << hud_log_line;
+            emit latencyHudTextChanged();
         }
     }
     close_started_frame(true);

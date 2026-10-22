@@ -67,6 +67,7 @@ class QmlMainWindow : public QWindow
     Q_PROPERTY(int runtimeRendererBackend READ runtimeRendererBackend CONSTANT)
     Q_PROPERTY(double queueDepthAverage READ queueDepthAverage NOTIFY queueDepthAverageChanged)
     Q_PROPERTY(double pendingFrameAge READ pendingFrameAge NOTIFY pendingFrameAgeChanged)
+    Q_PROPERTY(QString latencyHudText READ latencyHudText NOTIFY latencyHudTextChanged)
 
 public:
     enum class UpdateRequestReason {
@@ -127,6 +128,7 @@ public:
 
     double queueDepthAverage() const;
     double pendingFrameAge() const;
+    QString latencyHudText() const;
     QString describePlaceboDiscardReason(qint64 now_us) const;
 
     bool amdCard() const;
@@ -180,6 +182,7 @@ signals:
     void directStreamChanged();
     void queueDepthAverageChanged();
     void pendingFrameAgeChanged();
+    void latencyHudTextChanged();
     void loadingTransitionCompleteChanged();
     void statsOverlayActiveChanged();
 
@@ -324,6 +327,8 @@ private:
     uint64_t last_placebo_reset_ts = 0;
     uint64_t pending_frame_stored_us = 0;
     mutable QMutex pending_frame_age_mutex;
+    QString latency_hud_text;
+    mutable QMutex latency_hud_mutex;
     bool startup_warmup_preserve_next_session_change = false;
 
     pl_cache placebo_cache = {};
