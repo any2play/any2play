@@ -105,6 +105,10 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_ffmpeg_decoder_init(ChiakiFfmpegDecoder *de
 	decoder->codec_context->framerate = decoder->synthetic_framerate;
 	decoder->codec_context->pkt_timebase = decoder->synthetic_time_base;
 	decoder->codec_context->time_base = decoder->synthetic_time_base;
+#ifdef AV_CODEC_FLAG_COPY_OPAQUE
+	// Any2Play: hand each packet's arrival time (packet->opaque) to its frame.
+	decoder->codec_context->flags |= AV_CODEC_FLAG_COPY_OPAQUE;
+#endif
 
 	if(avcodec_open2(decoder->codec_context, decoder->av_codec, NULL) < 0)
 	{
@@ -136,6 +140,7 @@ CHIAKI_EXPORT void chiaki_ffmpeg_decoder_fini(ChiakiFfmpegDecoder *decoder)
 CHIAKI_EXPORT bool chiaki_ffmpeg_decoder_video_sample_cb(uint8_t *buf, size_t buf_size, int32_t frames_lost, bool frame_recovered, void *user)
 {
 	ChiakiFfmpegDecoder *decoder = user;
+	uint64_t arrival_us = chiaki_time_now_monotonic_us();
 
 	chiaki_mutex_lock(&decoder->mutex);
 	decoder->frames_lost += frames_lost;
@@ -195,6 +200,9 @@ CHIAKI_EXPORT bool chiaki_ffmpeg_decoder_video_sample_cb(uint8_t *buf, size_t bu
 	packet->duration = synthetic_duration_pts;
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59, 8, 100)
 	packet->time_base = decoder->synthetic_time_base;
+#endif
+#ifdef AV_CODEC_FLAG_COPY_OPAQUE
+	packet->opaque = (void *)(uintptr_t)arrival_us;
 #endif
 	decoder->synthetic_packet_pts += synthetic_duration_pts;
 	int r;
@@ -289,8 +297,12 @@ CHIAKI_EXPORT ChiakiFfmpegFrame chiaki_ffmpeg_decoder_pull_frame(ChiakiFfmpegDec
 	ChiakiFfmpegFrame frame_plus_stats = {};
 	frame_plus_stats.frame = frame;
 	frame_plus_stats.recovered = recovered;
+	frame_plus_stats.decoded_us = chiaki_time_now_monotonic_us();
 	if(frame)
 	{
+#ifdef AV_CODEC_FLAG_COPY_OPAQUE
+		frame_plus_stats.arrival_us = (uint64_t)(uintptr_t)frame->opaque;
+#endif
 		chiaki_ffmpeg_frame_get_timing(
 			frame,
 			pkt_timebase,

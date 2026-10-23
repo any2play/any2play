@@ -26,6 +26,10 @@ struct chiaki_ffmpeg_frame_t
 	double pts;
 	double duration;
 	bool recovered;
+	// Any2Play: chiaki_time_now_monotonic_us() when the encoded frame reached the
+	// decoder (0 if unknown) and when the decoded frame was pulled.
+	uint64_t arrival_us;
+	uint64_t decoded_us;
 };
 
 struct chiaki_ffmpeg_decoder_t

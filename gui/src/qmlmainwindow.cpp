@@ -2438,6 +2438,23 @@ static const char *render_params_path()
     return qPrintable(path);
 }
 
+// Any2Play: arrival time of the frame a render shows, for the latency HUD. In a
+// frame mix (sorted by timestamp) that is the newest frame at or before the
+// target vsync, or the oldest one if they all lie ahead.
+static quint64 displayed_frame_arrival_us(const struct pl_frame_mix &mix)
+{
+    if (mix.num_frames <= 0 || !mix.frames || !mix.timestamps)
+        return 0;
+    const struct pl_frame *shown = mix.frames[0];
+    for (int i = 1; i < mix.num_frames; i++) {
+        if (mix.timestamps[i] <= 0.0f)
+            shown = mix.frames[i];
+    }
+    if (!shown || !shown->user_data)
+        return 0;
+    return LatencyHud::frameArrival(pl_get_mapped_avframe(shown));
+}
+
 static const struct pl_hook *load_mpv_hook(pl_gpu gpu, const QString &path)
 {
     QFile file(path);
@@ -7519,6 +7536,7 @@ void QmlMainWindow::render()
         logLatencyStats("render_prep", render_call_begin_us - render_entry_us_local);
     if (render_call_begin_us >= render_setup_begin_us)
         logRenderSetupStats(render_call_begin_us, render_call_begin_us - render_setup_begin_us);
+    LatencyHud::instance().noteRenderedFrame(displayed_frame_arrival_us(frame_mix));
     LatencyHud::instance().beginRender();
     if (!(bypass_frame_queue
         ? pl_render_image(placebo_renderer, &direct_render_frame, &target_frame, &params)
