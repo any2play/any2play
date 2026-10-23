@@ -2,13 +2,21 @@
 
 #include "latencyhud.h"
 
+#include <chiaki/time.h>
+
 #include <libplacebo/renderer.h>
+
+extern "C" {
+#include <libavutil/dict.h>
+#include <libavutil/frame.h>
+}
 
 #include <QMutexLocker>
 #include <QStringList>
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <iterator>
 #include <utility>
@@ -16,6 +24,7 @@
 namespace {
 
 constexpr char upscale_pass_prefix[] = "upscale: ";
+constexpr char arrival_metadata_key[] = "any2play_arrival_us";
 constexpr qint64 window_us = 1000000;
 // Bounds memory if publish() stops being called (e.g. no frames rendered).
 constexpr int max_samples_per_stage = 4096;
@@ -26,6 +35,8 @@ struct StageNames {
 };
 
 constexpr StageNames stage_names[] = {
+    {"frame age", "frame_age"},
+    {"decode", "decode"},
     {"GPU frame", "gpu_frame"},
     {"upscaler GPU", "gpu_upscale"},
     {"render CPU", "render_cpu"},
@@ -79,6 +90,25 @@ void LatencyHud::plInfoCallback(void *priv, const struct pl_render_info *info)
         hud->frame_upscale_ns += pass->last;
 }
 
+void LatencyHud::setFrameArrival(AVFrame *frame, quint64 arrival_us)
+{
+    if (frame && arrival_us > 0)
+        av_dict_set_int(&frame->metadata, arrival_metadata_key, static_cast<int64_t>(arrival_us), 0);
+}
+
+quint64 LatencyHud::frameArrival(const AVFrame *frame)
+{
+    if (!frame)
+        return 0;
+    const AVDictionaryEntry *entry = av_dict_get(frame->metadata, arrival_metadata_key, nullptr, 0);
+    return entry ? std::strtoull(entry->value, nullptr, 10) : 0;
+}
+
+void LatencyHud::noteRenderedFrame(quint64 arrival_us)
+{
+    rendered_arrival_us.store(arrival_us, std::memory_order_relaxed);
+}
+
 void LatencyHud::addSample(Stage stage, qint64 delta_us)
 {
     if (delta_us < 0)
@@ -93,6 +123,16 @@ void LatencyHud::addLabeledSample(const char *label, qint64 delta_us)
 {
     if (!label)
         return;
+    if (std::strcmp(label, "swap_call") == 0) {
+        // The present that shows the last rendered frame just returned. Count a
+        // frame's age only on its first present; repeats would inflate it.
+        const quint64 arrival_us = rendered_arrival_us.load(std::memory_order_relaxed);
+        if (arrival_us > 0 && presented_arrival_us.exchange(arrival_us, std::memory_order_relaxed) != arrival_us) {
+            const quint64 now_us = chiaki_time_now_monotonic_us();
+            if (now_us >= arrival_us)
+                addSample(Stage::FrameAge, static_cast<qint64>(now_us - arrival_us));
+        }
+    }
     for (const LabelRoute &route : label_routes) {
         if (std::strcmp(label, route.label) == 0) {
             addSample(route.stage, delta_us);
@@ -193,4 +233,6 @@ void LatencyHud::reset()
     for (QVector<qint64> &stage_samples : samples)
         stage_samples.clear();
     window_start_us = 0;
+    rendered_arrival_us.store(0, std::memory_order_relaxed);
+    presented_arrival_us.store(0, std::memory_order_relaxed);
 }

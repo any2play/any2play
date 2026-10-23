@@ -9,7 +9,9 @@
 #include <QVector>
 
 #include <array>
+#include <atomic>
 
+struct AVFrame;
 struct pl_render_info;
 
 // Any2Play: rolling per-stage latency statistics for the stream stats overlay
@@ -20,6 +22,8 @@ class LatencyHud
 {
 public:
     enum class Stage {
+        FrameAge,    // encoded frame complete -> first present of its decoded frame returned
+        Decode,      // encoded frame complete -> decoded frame pulled by the GUI
         GpuFrame,    // sum of libplacebo pass GPU times for one rendered frame
         GpuUpscale,  // part of GpuFrame spent in upscaler user shaders
         RenderCpu,   // pl_render_image() call
@@ -37,6 +41,15 @@ public:
 
     // pl_render_params::info_callback; priv must point to a LatencyHud.
     static void plInfoCallback(void *priv, const struct pl_render_info *info);
+
+    // Arrival time of an encoded frame, carried in the decoded AVFrame's metadata
+    // (its opaque field already holds the window). 0 when unknown.
+    static void setFrameArrival(AVFrame *frame, quint64 arrival_us);
+    static quint64 frameArrival(const AVFrame *frame);
+
+    // The frame a render is about to show; its age is sampled when the present
+    // that shows it returns ("swap_call"), once per frame.
+    void noteRenderedFrame(quint64 arrival_us);
 
     void addSample(Stage stage, qint64 delta_us);
     // Routes upstream logLatencyStats() labels to stages; other labels are ignored.
@@ -68,6 +81,11 @@ private:
     quint64 frame_gpu_ns = 0;
     quint64 frame_upscale_ns = 0;
     bool frame_timed = false;
+
+    // Written by the render thread, read where the present returns (may be the
+    // deferred swap thread).
+    std::atomic<quint64> rendered_arrival_us{0};
+    std::atomic<quint64> presented_arrival_us{0};
 };
 
 #endif // CHIAKI_LATENCYHUD_H

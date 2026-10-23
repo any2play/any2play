@@ -2,6 +2,7 @@
 #include "qmlsettings.h"
 #include "qmlmainwindow.h"
 #include "streamsession.h"
+#include "latencyhud.h"
 #include "controllermanager.h"
 #include "psnaccountid.h"
 #include "psntoken.h"
@@ -1114,6 +1115,11 @@ void QmlBackend::createSession(const StreamSessionConnectInfo &connect_info)
         ChiakiFfmpegFrame frame = chiaki_ffmpeg_decoder_pull_frame(decoder, &frames_lost);
         if (!frame.frame)
             return;
+        if (frame.arrival_us > 0 && frame.decoded_us >= frame.arrival_us) {
+            LatencyHud::instance().addSample(LatencyHud::Stage::Decode,
+                                             static_cast<qint64>(frame.decoded_us - frame.arrival_us));
+            LatencyHud::setFrameArrival(frame.frame, frame.arrival_us);
+        }
         logDecoderDeliveryStats(static_cast<qint64>(chiaki_time_now_monotonic_us()), frames_lost, frame.recovered);
         logDecoderFramePtsStats(static_cast<qint64>(chiaki_time_now_monotonic_us()), frame.pts, frame.duration);
         if (frame.recovered)
